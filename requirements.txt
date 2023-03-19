@@ -36,7 +36,7 @@ entrypoints @ file:///home/conda/feedstock_root/build_artifacts/entrypoints_1643
 executing @ file:///home/conda/feedstock_root/build_artifacts/executing_1646044401614/work
 fastjsonschema @ file:///home/conda/feedstock_root/build_artifacts/python-fastjsonschema_1641751198313/work/dist
 filelock==3.9.0
-flatbuffers==2.0
+flatbuffers==1.12
 flit_core @ file:///home/conda/feedstock_root/build_artifacts/flit-core_1645629044586/work/source/flit_core
 fonttools==4.32.0
 frozenlist @ file:///Users/builder/miniconda3/envs/prefect/conda-bld/frozenlist_1637854040629/work
@@ -70,7 +70,7 @@ jupyter-console @ file:///home/conda/feedstock_root/build_artifacts/jupyter_cons
 jupyter-core @ file:///Users/runner/miniforge3/conda-bld/jupyter_core_1645024509511/work
 jupyterlab-pygments @ file:///home/conda/feedstock_root/build_artifacts/jupyterlab_pygments_1649431904336/work
 jupyterlab-widgets @ file:///home/conda/feedstock_root/build_artifacts/jupyterlab_widgets_1647446862951/work
-keras==2.11.0
+keras==2.9.0
 keras-cv==0.4.2
 Keras-Preprocessing @ file:///tmp/build/80754af9/keras-preprocessing_1612283640596/work
 kiwisolver==1.4.2
@@ -144,15 +144,15 @@ six @ file:///home/linux1/recipes/ci/six_1610970791821/work
 soupsieve @ file:///home/conda/feedstock_root/build_artifacts/soupsieve_1638550740809/work
 stack-data @ file:///home/conda/feedstock_root/build_artifacts/stack_data_1644872665635/work
 statsmodels==0.13.2
-tensorboard==2.11.2
+tensorboard==2.9.1
 tensorboard-data-server @ file:///Users/runner/miniforge3/conda-bld/tensorboard-data-server_1636045914528/work/tensorboard_data_server-0.6.0-py3-none-macosx_11_0_arm64.whl
 tensorboard-plugin-wit==1.6.0
 tensorflow-datasets==4.5.2
 tensorflow-docs @ git+https://github.com/tensorflow/docs@7d9aab3abb979d304e768df250b7fd069d60497e
-tensorflow-estimator==2.11.0
-tensorflow-macos==2.11.0
+tensorflow-estimator==2.9.0
+tensorflow-macos==2.9.0
 tensorflow-metadata==1.7.0
-tensorflow-metal==0.7.1
+tensorflow-metal==0.5.0
 termcolor==1.1.0
 terminado @ file:///Users/runner/miniforge3/conda-bld/terminado_1649103823275/work
 testpath @ file:///home/conda/feedstock_root/build_artifacts/testpath_1645693042223/work
