@@ -23,7 +23,6 @@ class AutoEncoder(Model):
         """
         super(AutoEncoder, self).__init__()
         self.hidden_dims = hidden_dims
-        self.output_shape = output_shape
 
         # Create encoder
         self.encoder_layers = []
@@ -36,7 +35,7 @@ class AutoEncoder(Model):
         for dim in self.hidden_dims[len(self.hidden_dims) - 2 : 0 : -1]:
             self.decoder_layers.append(layers.Dense(units=dim, activation="relu"))
         self.decoder_layers.append(
-            layers.Dense(unit=self.output_shape, activation="sigmoid")
+            layers.Dense(units=output_shape, activation="sigmoid")
         )
         self.decoder = keras.Sequential(self.decoder_layers)
 
@@ -74,18 +73,18 @@ class AdversarialAutoEncoder(Model):
         """
         super(AdversarialAutoEncoder, self).__init__()
         self.hidden_dims = hidden_dims
-        self.output_shape = output_shape
 
         # Create generator
         self.generator = AutoEncoder(
-            hidden_dims=self.hidden_dims, output_shape=self.output_shape
+            hidden_dims=self.hidden_dims, output_shape=output_shape
         )
 
         # Create discriminator
         self.discriminator_layers = []
-        for dim in self.hidden_dims[: len(self.hidden_dims - 1)]:
+        for dim in self.hidden_dims[: len(self.hidden_dims) - 1]:
             self.discriminator_layers.append(layers.Dense(units=dim, activation="relu"))
         self.discriminator_layers.append(layers.Dense(units=1, activation="sigmoid"))
+        self.discriminator = keras.Sequential(self.discriminator_layers)
 
     def call(self, x):
         """Defines the call function
@@ -120,13 +119,12 @@ class AdversarialDualAutoEncoder(Model):
         """
         super(AdversarialDualAutoEncoder, self).__init__()
         self.hidden_dims = hidden_dims
-        self.output_shape = output_shape
 
         self.generator = AutoEncoder(
-            hidden_dims=self.hidden_dims, output_shape=self.output_shape
+            hidden_dims=self.hidden_dims, output_shape=output_shape
         )
         self.discriminator = AutoEncoder(
-            hidden_dims=self.hidden_dims, output_shape=self.output_shape
+            hidden_dims=self.hidden_dims, output_shape=output_shape
         )
 
     def call(self, x):
