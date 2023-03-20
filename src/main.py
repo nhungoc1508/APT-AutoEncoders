@@ -1,23 +1,24 @@
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 
-from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import (
-    train_test_split,
-    cross_val_score,
-    RepeatedStratifiedKFold,
-)
+# from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
+# from sklearn.model_selection import (
+#     train_test_split,
+#     cross_val_score,
+#     RepeatedStratifiedKFold,
+# )
 
 from tensorflow import keras
 from keras import layers, losses
 from keras.models import Model
 
-import random, time, sys
+import random, time, sys, os, datetime, json
 
 from models import *
+from utils import *
 
 
 class AnomalyDetector:
@@ -63,18 +64,18 @@ class AnomalyDetector:
 
     def load_data(self):
         """Loads data based on command line arguments"""
-        processes = pd.read_csv(self.path + self.data_path)
+        self.processes = pd.read_csv(self.path + self.data_path)
         labels_df = pd.read_csv(self.path + self.label_path)
-        apt_list = labels_df.loc[labels_df["label"] == "AdmSubject::Node"]["uuid"]
+        self.apt_list = labels_df.loc[labels_df["label"] == "AdmSubject::Node"]["uuid"]
 
-        if "Object_ID" in processes.columns:
-            col = "Object_ID"
+        if "Object_ID" in self.processes.columns:
+            self.col = "Object_ID"
         else:
-            col = "UUID"
+            self.col = "UUID"
 
-        labels_series = processes[col].isin(apt_list)
+        labels_series = self.processes[self.col].isin(self.apt_list)
         self.labels = labels_series.values
-        self.data = processes.values[:, 1:]
+        self.data = self.processes.values[:, 1:]
         print("Load data: finished.")
         print(f"Data dimension: {self.data.shape}")
 
@@ -309,6 +310,74 @@ class AnomalyDetector:
             self.gen_losses_mean.append(np.mean(gen_losses))
             self.disc_losses_mean.append(np.mean(disc_losses))
 
+    def get_anomaly_ranking(self):
+        self.data_tf = tf.cast(self.data.astype(np.int32), tf.int32)
+        if self.model_type == "ae":
+            model = self.AE
+        elif self.model_type == "aae":
+            model = self.AAE
+        else:
+            model = self.ADAE
+        preds, losses = get_loss_fl(model, self.data_tf)
+
+        self.ranked_df = pd.DataFrame(list(zip(self.processes[self.col], losses)),columns=["UUID", "loss"])
+        self.ranked_df = self.ranked_df.sort_values(by="loss", ascending=False)
+
+    def score(self):
+        violators = self.ranked_df["UUID"]
+        true_pos = list(set(violators) & set(self.apt_list))
+        self.true_pos_positions = [i+1 for i, x in enumerate(violators) if x in true_pos]
+        self.nDCG = normalized_discounted_cumulative_gain(self.true_pos_positions, len(self.apt_list))
+        print(f"Rankings of all anomalous data points: {self.true_pos_positions}")
+        print("nDCG: {}".format(self.nDCG))
+
+    def save_results(self):
+        timestamp = datetime.datetime.now()
+        timestamp_fmt = timestamp.strftime("%Y-%m-%d_%H-%M-%S") # e.g. 2023-03-20_15-45-59
+        # self.data_path = pandex/trace/ProcessAll.csv
+        path_splits = self.data_path.split("/")
+        dataset_name = path_splits[-1].split(".")[0]
+        output_dir = f"../results/{self.model_type}_{path_splits[0]}_{path_splits[1]}_{dataset_name}_{timestamp_fmt}"
+
+        # Write training losses
+        if self.model_type == "ae":
+            filepath = f"{output_dir}/ae_losses_mean.txt"
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            file = open(filepath, "w")
+            list_to_txt(self.losses_mean, file)
+
+        else:
+            filepath_gen = f"{output_dir}/{self.model_type}_gen_losses_mean.txt"
+            os.makedirs(os.path.dirname(filepath_gen), exist_ok=True)
+            file_gen = open(filepath_gen, "w")
+            list_to_txt(self.gen_losses_mean, file_gen)
+
+            filepath_disc = f"{output_dir}/{self.model_type}_disc_losses_mean.txt"
+            os.makedirs(os.path.dirname(filepath_disc), exist_ok=True)
+            file_disc = open(filepath_disc, "w")
+            list_to_txt(self.disc_losses_mean, file_disc)
+
+        # Write rankings dataframe
+        self.ranked_df.to_csv(f"{output_dir}/ranked_df.csv")
+
+        # Write anomalous rankings
+        filepath_r = f"{output_dir}/{self.model_type}_anomaly_rankings.txt"
+        file_r = open(filepath_r, "w")
+        list_to_txt(self.true_pos_positions, file_r)
+
+        # Write training params to json
+        params = {
+            "hidden_dims": self.hidden_dims,
+            "learning_rate": self.learning_rate,
+            "epochs": self.epochs,
+            "batch_size": self.batch_size,
+            "nDCG": self.nDCG
+        }
+        with open(f"{output_dir}/params.json", "w") as fp:
+            json.dump(obj=params, fp=fp, indent=4)
+
+        print(f"Results saved to {output_dir}")
+
 def main():
     AD = AnomalyDetector()
     AD.load_data()
@@ -316,22 +385,13 @@ def main():
     AD.create_models()
     if AD.model_type == "ae":
         AD.train_model_ae()
-        print("\nFinished training AE. Losses mean:")
-        print(AD.losses_mean)
     elif AD.model_type == "aae":
         AD.train_model_aae()
-        print("\nFinished training AAE.")
-        print("Gen losses mean:")
-        print(AD.gen_losses_mean)
-        print("Disc losses mean:")
-        print(AD.disc_losses_mean)
     elif AD.model_type == "adae":
         AD.train_model_adae()
-        print("\nFinished training ADAE.")
-        print("Gen losses mean:")
-        print(AD.gen_losses_mean)
-        print("Disc losses mean:")
-        print(AD.disc_losses_mean)
+    AD.get_anomaly_ranking()
+    AD.score()
+    AD.save_results()
 
 if __name__ == "__main__":
     main()
