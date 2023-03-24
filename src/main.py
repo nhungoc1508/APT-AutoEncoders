@@ -339,12 +339,15 @@ class AnomalyDetector:
         dataset_name = path_splits[-1].split(".")[0]
         output_dir = f"../results/{self.model_type}_{path_splits[0]}_{path_splits[1]}_{dataset_name}_{timestamp_fmt}"
 
-        # Write training losses
+        # Write training losses, plot & save losses
+        x = np.arange(1, self.epochs+1, 1)
+        plt.figure(figsize=(10, 6), dpi=150)
         if self.model_type == "ae":
             filepath = f"{output_dir}/ae_losses_mean.txt"
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             file = open(filepath, "w")
             list_to_txt(self.losses_mean, file)
+            plt.plot(x, self.losses_mean)
 
         else:
             filepath_gen = f"{output_dir}/{self.model_type}_gen_losses_mean.txt"
@@ -356,6 +359,15 @@ class AnomalyDetector:
             os.makedirs(os.path.dirname(filepath_disc), exist_ok=True)
             file_disc = open(filepath_disc, "w")
             list_to_txt(self.disc_losses_mean, file_disc)
+            plt.plot(x, self.gen_losses_mean, label="Generator loss")
+            plt.plot(x, self.disc_losses_mean, label="Discriminator loss", color="orange")
+            plt.legend()
+        plt.xticks(ticks=x)
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.title("Mean training losses")
+        plt.savefig(f"{output_dir}/training_losses.png")
+        plt.close()
 
         # Write rankings dataframe
         self.ranked_df.to_csv(f"{output_dir}/ranked_df.csv")
@@ -375,6 +387,10 @@ class AnomalyDetector:
         }
         with open(f"{output_dir}/params.json", "w") as fp:
             json.dump(obj=params, fp=fp, indent=4)
+
+        # Plot data points and save figures
+        plot_data_points(data=self.normal_X, nrows=3, ncols=2, filepath=f"{output_dir}/normal_data", title="Normal data points")
+        plot_data_points(data=self.anomalous_X, nrows=3, ncols=2, filepath=f"{output_dir}/anomalous_data", title="Anomalous data points")
 
         print(f"Results saved to {output_dir}")
 
