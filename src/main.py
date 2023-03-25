@@ -148,15 +148,18 @@ class AnomalyDetector:
 
     # Case: Adversarial Dual AutoEncoder
 
-    def adae_generator_loss(self, input_data, gen_output, disc_output):
-        return self.cross_entropy(input_data, gen_output) + self.cross_entropy(
-            gen_output, disc_output
-        )
+    def adae_reconstruction_loss(self, input_data, gen_output):
+        return self.cross_entropy(input_data, gen_output)
 
     def adae_discriminator_loss(self, input_data, gen_output, real_output, fake_output):
         real_loss = self.cross_entropy(input_data, real_output)
         fake_loss = self.cross_entropy(gen_output, fake_output)
-        return real_loss - fake_loss
+        return real_loss + fake_loss
+
+    def adae_generator_loss(self, input_data, gen_output, real_output, fake_output, lambda_value=0.5):
+        gen_loss = self.adae_reconstruction_loss(input_data, gen_output)
+        disc_loss = self.adae_discriminator_loss(input_data, gen_output, real_output, fake_output)
+        return gen_loss - lambda_value * disc_loss
 
     @tf.function
     def train_step_ae(self, x, optimizer):
@@ -266,7 +269,7 @@ class AnomalyDetector:
             real_output = self.ADAE.discriminator(x, training=True)
             fake_output = self.ADAE.discriminator(generated_data, training=True)
 
-            gen_loss = self.adae_generator_loss(x, generated_data, fake_output)
+            gen_loss = self.adae_generator_loss(x, generated_data, real_output, fake_output, lambda_value=0.2)
             disc_loss = self.adae_discriminator_loss(x, generated_data, real_output, fake_output)
 
         gen_grads = gen_tape.gradient(gen_loss, self.ADAE.generator.trainable_variables)
@@ -317,7 +320,7 @@ class AnomalyDetector:
         elif self.model_type == "aae":
             model = self.AAE.generator
         else:
-            model = self.ADAE
+            model = self.ADAE.generator
         preds, losses = get_loss_fl(model, self.data_tf)
 
         self.ranked_df = pd.DataFrame(list(zip(self.processes[self.col], losses)),columns=["UUID", "loss"])
