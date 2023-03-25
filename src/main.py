@@ -144,7 +144,7 @@ class AnomalyDetector:
     ):
         gen_loss = self.aae_generator_loss(input_data, reconstructed_output)
         disc_loss = self.aae_discriminator_loss(real_output, fake_output)
-        return gen_loss + lambda_value * disc_loss
+        return gen_loss - lambda_value * disc_loss
 
     # Case: Adversarial Dual AutoEncoder
 
@@ -156,7 +156,7 @@ class AnomalyDetector:
     def adae_discriminator_loss(self, input_data, gen_output, real_output, fake_output):
         real_loss = self.cross_entropy(input_data, real_output)
         fake_loss = self.cross_entropy(gen_output, fake_output)
-        return real_loss + fake_loss
+        return real_loss - fake_loss
 
     @tf.function
     def train_step_ae(self, x, optimizer):
@@ -196,10 +196,10 @@ class AnomalyDetector:
 
     @tf.function
     def train_step_aae(self, x, gen_optimizer, disc_optimizer):
-        noise_dim = self.normal_X.shape[1]
-        noise = tf.random.normal([self.batch_size, noise_dim])
+        # noise_dim = self.normal_X.shape[1]
+        # noise = tf.random.normal([self.batch_size, noise_dim])
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-            generated_data = self.AAE.generator(noise, training=True)
+            generated_data = self.AAE.generator(x, training=True)
 
             real_output = self.AAE.discriminator(x, training=True)
             fake_output = self.AAE.discriminator(generated_data, training=True)
@@ -315,7 +315,7 @@ class AnomalyDetector:
         if self.model_type == "ae":
             model = self.AE
         elif self.model_type == "aae":
-            model = self.AAE
+            model = self.AAE.generator
         else:
             model = self.ADAE
         preds, losses = get_loss_fl(model, self.data_tf)
@@ -362,7 +362,7 @@ class AnomalyDetector:
             plt.plot(x, self.gen_losses_mean, label="Generator loss")
             plt.plot(x, self.disc_losses_mean, label="Discriminator loss", color="orange")
             plt.legend()
-        plt.xticks(ticks=x)
+        plt.xticks(ticks=x) # TODO: change this into a fixed number of ticks
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.title("Mean training losses")
@@ -400,11 +400,11 @@ def main():
     AD.prepare_data()
     AD.create_models()
     if AD.model_type == "ae":
-        AD.train_model_ae()
+        AD.train_model_ae(epochs=200)
     elif AD.model_type == "aae":
-        AD.train_model_aae()
+        AD.train_model_aae(epochs=200)
     elif AD.model_type == "adae":
-        AD.train_model_adae()
+        AD.train_model_adae(epochs=50)
     AD.get_anomaly_ranking()
     AD.score()
     AD.save_results()
