@@ -15,7 +15,7 @@ from tensorflow import keras
 from keras import layers, losses
 from keras.models import Model
 
-import random, time, sys, os, datetime, json
+import random, time, sys, os, datetime, json, math
 
 from models import *
 from utils import *
@@ -106,8 +106,23 @@ class AnomalyDetector:
         print(f"Selected model: {self.model_type_dict[self.model_type]}")
 
         # Hard coding hidden layers architecture
+        def highest_power_2(n):
+            p = int(math.log(n, 2))
+            return int(pow(2, p))
         # TODO: update this to take in command line input
-        self.hidden_dims = [128, 64, 32, 16, 8]
+        self.hidden_dims = []
+        n = self.normal_X.shape[1]
+        if n < 128:
+            start_dim = highest_power_2(n)
+        else:
+            start_dim = 128
+        if start_dim < 16:
+            bottleneck = 4
+        else:
+            bottleneck = 8
+        while start_dim >= bottleneck:
+            self.hidden_dims.append(start_dim)
+            start_dim = int(start_dim / 2)
 
         self.AE = AutoEncoder(
             hidden_dims=self.hidden_dims, output_shape=self.normal_X.shape[1]
@@ -236,7 +251,7 @@ class AnomalyDetector:
         self.num_samples = self.normal_X.shape[0]
         self.num_batches = int(np.ceil(self.num_samples / self.batch_size))
 
-        self.gen_optimizer = keras.optimizers.Adam(learning_rate=self.learning_rate)
+        self.gen_optimizer = keras.optimizers.Adam(learning_rate=self.learning_rate*1.5)
         self.disc_optimizer = keras.optimizers.Adam(learning_rate=self.learning_rate)
 
         self.gen_losses_mean, self.disc_losses_mean = [], []
@@ -343,6 +358,7 @@ class AnomalyDetector:
         output_dir = f"../results/{self.model_type}_{path_splits[0]}_{path_splits[1]}_{dataset_name}_{timestamp_fmt}"
 
         # Write training losses, plot & save losses
+        gen_color, disc_color = "#0094bb", "#ffa251"
         x = np.arange(1, self.epochs+1, 1)
         plt.figure(figsize=(10, 6), dpi=150)
         if self.model_type == "ae":
@@ -350,7 +366,7 @@ class AnomalyDetector:
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             file = open(filepath, "w")
             list_to_txt(self.losses_mean, file)
-            plt.plot(x, self.losses_mean)
+            plt.plot(x, self.losses_mean, color=gen_color)
 
         else:
             filepath_gen = f"{output_dir}/{self.model_type}_gen_losses_mean.txt"
@@ -362,10 +378,10 @@ class AnomalyDetector:
             os.makedirs(os.path.dirname(filepath_disc), exist_ok=True)
             file_disc = open(filepath_disc, "w")
             list_to_txt(self.disc_losses_mean, file_disc)
-            plt.plot(x, self.gen_losses_mean, label="Generator loss")
-            plt.plot(x, self.disc_losses_mean, label="Discriminator loss", color="orange")
+            plt.plot(x, self.gen_losses_mean, label="Generator loss", color=gen_color)
+            plt.plot(x, self.disc_losses_mean, label="Discriminator loss", color=disc_color)
             plt.legend()
-        plt.xticks(ticks=x) # TODO: change this into a fixed number of ticks
+        plt.xticks(ticks=x[::int(len(x) / 10)])
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.title("Mean training losses")
@@ -403,9 +419,9 @@ def main():
     AD.prepare_data()
     AD.create_models()
     if AD.model_type == "ae":
-        AD.train_model_ae(epochs=200)
+        AD.train_model_ae(epochs=50)
     elif AD.model_type == "aae":
-        AD.train_model_aae(epochs=200)
+        AD.train_model_aae(epochs=50)
     elif AD.model_type == "adae":
         AD.train_model_adae(epochs=50)
     AD.get_anomaly_ranking()

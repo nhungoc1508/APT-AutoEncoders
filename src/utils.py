@@ -48,9 +48,14 @@ def get_reshape_pair(shape):
 
 def plot_data_points(data, nrows, ncols, filepath, title=""):
     if nrows * ncols > data.shape[0]:
-        raise Exception("Size of figures exceeds size of data.")
+        print("ERR: Size of figures exceeds size of data.")
+        return
+    if data.shape[1] > 299:
+        print("ERR: Data too high dimensional (>299) to visualize effectively.")
+        return
     fig_size = (5 * nrows, 4 * ncols)
-    reshape_size = get_reshape_pair(data.shape[1])
+    # reshape_size = get_reshape_pair(data.shape[1])
+    reshape_size = (13, 23)
     rand_indices = random.sample(range(data.shape[0]), nrows * ncols)
 
     cmap = ["#f5f5f5", "#fb7d74"]
@@ -60,7 +65,13 @@ def plot_data_points(data, nrows, ncols, filepath, title=""):
     for i in range(nrows):
         for j in range(ncols):
             idx = rand_indices[ncols * i + j]
-            x = data[idx].numpy().reshape(reshape_size)
+            x = data[idx].numpy()
+            if x.shape[0] < 299:
+                padding_size = 299 - x.shape[0]
+                pads = np.empty(padding_size)
+                pads[:] = np.nan
+                x = np.concatenate((x, pads), axis=None)
+            x = x.reshape(reshape_size)
             sns.heatmap(x, cbar=False, ax=ax[i][j], **kwargs)
             ax[i][j].set_xticks([])
             ax[i][j].set_yticks([])
